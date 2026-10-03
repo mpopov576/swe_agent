@@ -13,56 +13,24 @@ The recorded evaluation results in this repository were produced with the local 
 
 ```mermaid
 flowchart LR
-    Client[Client / PowerShell]
+    Client[Client] --> API[FastAPI]
+    API --> Orchestrator[Repair Orchestrator]
 
-    subgraph EC2["AWS EC2"]
-        API[FastAPI Job API]
-        Orchestrator[Repair Orchestrator]
+    Orchestrator --> Retrieval[Code Retrieval]
+    Retrieval --> Agent[SWE Agent]
 
-        subgraph Retrieval["Repository Context"]
-            Parser[Tree-sitter Parser]
-            Search[Semantic + Lexical Search]
-            Graph[Dependency Graph]
-        end
+    Agent --> Tools[Read / Search / Edit Tools]
+    Agent --> Sandbox[Docker Sandbox]
+    Agent <--> Model[Qwen3-Coder via Bedrock]
 
-        Agent[SWE Agent]
-        Judge[Judge Agent]
+    Agent --> Judge[Judge Agent]
+    Judge --> Sandbox
+    Judge <--> Model
 
-        subgraph Execution["Execution Layer"]
-            Tools[Repository Tools]
-            Docker[Docker Sandbox]
-        end
-
-        Artifacts[Run Artifacts<br/>status + result + patch]
-    end
-
-    subgraph Bedrock["Amazon Bedrock"]
-        Model[Qwen3-Coder]
-    end
-
-    Client -->|submit job| API
-    API --> Orchestrator
-
-    Orchestrator --> Retrieval
-    Retrieval --> Agent
-
-    Agent -->|read / search / edit| Tools
-    Agent -->|run tests| Docker
-
-    Agent <--> |LLM inference| Model
-
-    Agent -->|candidate patch| Judge
-    Judge <--> |LLM review| Model
-    Judge -->|verify original vs patched| Docker
-
-    Orchestrator --> Artifacts
-    Judge --> Artifacts
-
-    API --> Artifacts
-    Artifacts -->|status / result / patch| API
-    API -->|response| Client
+    Judge --> Artifacts[Patch + Result]
+    Artifacts --> API
+    API --> Client
 ```
-
 ## How it works
 
 A repair run follows a bounded workflow:
