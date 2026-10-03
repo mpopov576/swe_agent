@@ -299,6 +299,22 @@ After the tunnel is established, the client can use `http://127.0.0.1:8000` loca
     ├── manifest.json
     └── results.csv
 ```
+## Future work
+
+A planned extension is an **optimization cycle** around the repair pipeline.
+
+The idea is to use evaluation results as structured feedback for improving the system iteratively:
+
+1. run the repair benchmark
+2. collect failed and incomplete attempts
+3. analyze where the pipeline failed — retrieval, tool use, patch generation, verification, or judging
+4. adjust prompts, retrieval/reranking, tool policies, or verification logic
+5. re-run the same fixed evaluation suite
+6. compare the new results against the previous configuration
+
+This would turn the current evaluation harness into a repeatable optimization loop rather than using it only for final measurement.
+
+The goal is not to let the agent modify itself without control, but to make changes measurable and reproducible against fixed tasks, commits, checkers, and runtime settings.
 
 ## Current limitations
 
