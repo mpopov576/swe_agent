@@ -110,8 +110,6 @@ For Bedrock, the deployment also sets `AWS_REGION` and model environment variabl
 
 ## Evaluation
 
-The project includes a small controlled repair benchmark designed to test the end-to-end pipeline rather than only the model response.
-
 The benchmark contains six bug-fixing tasks, each repeated three times. For every attempt, the harness:
 
 - checks out an exact starting commit
