@@ -316,10 +316,9 @@ The goal is not to let the agent modify itself without control, but to make chan
 
 ## Current limitations
 
-This is a portfolio/research project rather than a production coding service.
-
 Current limitations include:
 
+- the local evaluation is constrained by relatively small models, which can limit both patch quality and judge reliability
 - the evaluation set is small and task-specific
 - the judge model frequently returns incomplete verdicts
 - the API uses a single-worker, filesystem-backed job model
