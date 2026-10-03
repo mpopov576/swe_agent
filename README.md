@@ -12,35 +12,55 @@ The recorded evaluation results in this repository were produced with the local 
 ## Architecture
 
 ```mermaid
-flowchart TD
-    Client[Client] --> API[FastAPI job API]
-    API --> Runner[Repair orchestrator]
+flowchart LR
+    User[Client / API caller]
 
-    Runner --> Repo[Temporary repository checkout]
-    Repo --> Context[Repository context pipeline]
+    subgraph AWS["AWS deployment"]
+        direction LR
 
-    Context --> Parse[Tree-sitter parsing]
-    Context --> Semantic[Semantic retrieval]
-    Context --> Lexical[Lexical retrieval]
-    Context --> Graph[Dependency expansion]
-    Context --> Rerank[Reranking]
+        subgraph EC2["EC2 instance"]
+            direction TB
 
-    Context --> Agent[SWE agent]
-    Agent <--> LLM[LLM client]
-    LLM --> Ollama[Ollama / Qwen3 14B]
-    LLM --> Bedrock[Amazon Bedrock / Qwen3-Coder]
+            API[FastAPI job API]
+            Orch[Repair orchestrator]
+            Repo[Repository workspace]
+            Ctx[Context pipeline<br/>Tree-sitter + semantic search + lexical search + dependency expansion]
+            Agent[SWE agent]
+            Judge[Judge agent]
+            Tools[Repository tools<br/>read / search / edit]
+            Sandbox[Docker sandbox<br/>command execution + verification]
+            Artifacts[Run artifacts<br/>result JSON + patch diff]
+        end
 
-    Agent --> Tools[Repository tools]
+        subgraph Bedrock["Amazon Bedrock"]
+            Model[Qwen3-Coder model]
+        end
+    end
+
+    User -->|submit job / poll result| API
+    API --> Orch
+
+    Orch --> Repo
+    Repo --> Ctx
+    Ctx --> Agent
+
+    Agent -->|tool calls| Tools
     Tools --> Repo
-    Agent --> Docker[Docker command sandbox]
 
-    Agent --> Loop[Verification loop]
-    Loop --> Judge[Judge agent]
-    Judge --> Verify[Independent before/after verification]
-    Verify --> Docker
+    Agent -->|run commands / tests| Sandbox
+    Sandbox --> Repo
 
-    Loop --> Artifacts[Result JSON + Git patch]
-    Artifacts --> API
+    Agent -->|candidate patch| Judge
+    Judge -->|before/after verification| Sandbox
+
+    Agent <--> |LLM requests / tool-use responses| Model
+    Judge <--> |LLM requests / verification review| Model
+
+    Orch --> Artifacts
+    Judge --> Artifacts
+    API --> Artifacts
+    Artifacts -->|status / result / patch| API
+    API -->|response| User
 ```
 
 ## How it works
