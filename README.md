@@ -1,6 +1,6 @@
 # swe_agent
 
-Evolving SWE is a sandboxed software-repair agent for repository-level bug fixing. Given a repository and an issue description, it retrieves relevant code, uses tool calls to inspect and edit the repository, runs verification commands in Docker, asks a separate judge agent to review the candidate, and saves the resulting patch and run artifacts.
+swe_agent is a sandboxed software-repair agent for repository-level bug fixing. Given a repository and an issue description, it retrieves relevant code, uses tool calls to inspect and edit the repository, runs verification commands in Docker, asks a separate judge agent to review the candidate, and saves the resulting patch and run artifacts.
 
 The project supports two LLM backends:
 
