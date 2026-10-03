@@ -24,7 +24,10 @@ flowchart LR
     Loop -->|run / retry| Agent
 
     Agent <--> LLM[LLM Client]
-    LLM <--> Model[Qwen3-Coder / Bedrock]
+    Judge <--> LLM
+
+    LLM <--> Ollama[Qwen3 14B / Ollama]
+    LLM <--> Bedrock[Qwen3-Coder / Amazon Bedrock]
 
     Agent <--> Tools[Repository Tools]
     Tools <--> Repo
@@ -33,13 +36,20 @@ flowchart LR
     Agent -->|candidate ready| Loop
     Loop -->|candidate diff| Judge[Judge Agent]
 
-    Judge <--> LLM
     Judge <--> Verify[verify_fix]
     Verify <--> Docker
 
     Judge -->|fail feedback| Loop
     Loop --> Result[Result + Patch]
     Result --> API
+```
+
+
+
+
+```markdown
+The EC2 instance runs API orchestration, repository retrieval, tool execution, Docker-based testing, and verification. The shared `LLMClient` can route inference either to local Qwen3 14B through Ollama or to Qwen3-Coder through Amazon Bedrock.
+
 ```
 
 ## How it works
