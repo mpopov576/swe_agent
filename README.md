@@ -13,54 +13,21 @@ The recorded evaluation results in this repository were produced with the local 
 
 ```mermaid
 flowchart LR
-    User[Client / API caller]
+    Client[Client] --> API[FastAPI on EC2]
+    API --> Agent[SWE Agent]
 
-    subgraph AWS["AWS deployment"]
-        direction LR
+    Agent --> Context[Repository context]
+    Agent --> Tools[File + Docker tools]
+    Agent --> Judge[Judge + verification]
 
-        subgraph EC2["EC2 instance"]
-            direction TB
+    Agent <--> Model[Qwen3-Coder on Amazon Bedrock]
+    Judge <--> Model
 
-            API[FastAPI job API]
-            Orch[Repair orchestrator]
-            Repo[Repository workspace]
-            Ctx[Context pipeline<br/>Tree-sitter + semantic search + lexical search + dependency expansion]
-            Agent[SWE agent]
-            Judge[Judge agent]
-            Tools[Repository tools<br/>read / search / edit]
-            Sandbox[Docker sandbox<br/>command execution + verification]
-            Artifacts[Run artifacts<br/>result JSON + patch diff]
-        end
-
-        subgraph Bedrock["Amazon Bedrock"]
-            Model[Qwen3-Coder model]
-        end
-    end
-
-    User -->|submit job / poll result| API
-    API --> Orch
-
-    Orch --> Repo
-    Repo --> Ctx
-    Ctx --> Agent
-
-    Agent -->|tool calls| Tools
+    Context --> Repo[Repository]
     Tools --> Repo
-
-    Agent -->|run commands / tests| Sandbox
-    Sandbox --> Repo
-
-    Agent -->|candidate patch| Judge
-    Judge -->|before/after verification| Sandbox
-
-    Agent <--> |LLM requests / tool-use responses| Model
-    Judge <--> |LLM requests / verification review| Model
-
-    Orch --> Artifacts
-    Judge --> Artifacts
-    API --> Artifacts
-    Artifacts -->|status / result / patch| API
-    API -->|response| User
+    Judge --> Patch[Patch + result]
+    Patch --> API
+    API --> Client
 ```
 
 ## How it works
