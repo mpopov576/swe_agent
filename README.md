@@ -13,24 +13,30 @@ The recorded evaluation results in this repository were produced with the local 
 
 ```mermaid
 flowchart LR
-    Client[Client] --> API[FastAPI]
+    Client[Client] <--> API[FastAPI]
     API --> Orchestrator[Repair Orchestrator]
 
-    Orchestrator --> Retrieval[Code Retrieval]
-    Retrieval --> Agent[SWE Agent]
+    Orchestrator --> Context[Code Retrieval]
+    Context <--> Repo[Repository]
 
-    Agent --> Tools[Read / Search / Edit Tools]
-    Agent --> Sandbox[Docker Sandbox]
-    Agent <--> Model[Qwen3-Coder via Bedrock]
+    Context --> Agent[SWE Agent]
 
-    Agent --> Judge[Judge Agent]
-    Judge --> Sandbox
-    Judge <--> Model
+    Agent <--> LLM[LLM Client]
+    LLM <--> Model[Qwen3-Coder / Bedrock]
 
-    Judge --> Artifacts[Patch + Result]
-    Artifacts --> API
-    API --> Client
+    Agent <--> Tools[Tool Manager]
+    Tools <--> Repo
+    Tools <--> Sandbox[Docker Sandbox]
+
+    Agent -->|candidate patch| Judge[Judge Agent]
+    Judge <--> LLM
+    Judge <--> Verify[Verification]
+    Verify <--> Sandbox
+
+    Judge --> Result[Patch + Result]
+    Result --> API
 ```
+
 ## How it works
 
 A repair run follows a bounded workflow:
