@@ -58,7 +58,7 @@ A repair run follows a bounded workflow:
 7. Re-run the same verification command against the original and patched repository.
 8. Save the complete run result and Git diff as artifacts.
 
-The agent is intentionally tool-driven. File inspection and editing use explicit repository tools, while command execution is confined to the restricted Docker runtime rather than running directly on the host.
+The agent primarily interacts with repository files through explicit read/search/edit tools. Command execution is additionally available inside a restricted Docker container with network access disabled, dropped capabilities, resource limits, and a read-only container root filesystem.
 
 ## Repository context
 
