@@ -1,10 +1,21 @@
-# Python
+# Python virtual environments
 /.venv/
+venv/
+env/
+
+# Python cache / compiled files
 __pycache__/
 *.py[cod]
-.pytest_cache/
+*.pyo
 
-# IDE
+# Test / tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# IDE / editor files
 .idea/
 .vscode/
 
@@ -12,33 +23,36 @@ __pycache__/
 /runs/
 /api-jobs/
 
-# Local configuration / secrets
-.env
-.env.*
-*.pem
-*.key
-
-# Logs / temporary files
-*.log
-crash-log.txt
-
-# OS junk
-.DS_Store
-Thumbs.db
-
 # Generated vector-store test data
 /tests/.chroma_test_data/
 
 # Local evaluation repositories
 /eval-repos/
 
-# Generated evaluation runs
-/evaluation-results/
+# Keep only summary files from the final evaluation
+/evaluation-results/*
+!/evaluation-results/BATCH-NOTES.txt
+!/evaluation-results/manifest.json
+!/evaluation-results/results.csv
 
-/evaluation-results-v1/*
-!/evaluation-results-v1/BATCH-NOTES.txt
-!/evaluation-results-v1/manifest.json
-!/evaluation-results-v1/results.csv
+# Ignore the older evaluation batch completely
+/evaluation-results-v1/
 
-# Temporary backups
+# Secrets / local configuration
+.env
+.env.*
+*.pem
+*.key
+
+# Logs / crash files
+*.log
+crash-log.txt
+
+# Temporary / backup files
 *.bak
+*.tmp
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
