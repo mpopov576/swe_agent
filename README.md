@@ -16,24 +16,29 @@ flowchart LR
     Client[Client] <--> API[FastAPI]
     API --> Orchestrator[Repair Orchestrator]
 
-    Orchestrator --> Context[Code Retrieval]
-    Context <--> Repo[Repository]
+    Orchestrator --> Repo[Repository + Docker Environment]
+    Orchestrator --> Loop[Verification Loop]
 
+    Repo --> Context[Code Retrieval]
     Context --> Agent[SWE Agent]
+    Loop -->|run / retry| Agent
 
     Agent <--> LLM[LLM Client]
     LLM <--> Model[Qwen3-Coder / Bedrock]
 
-    Agent <--> Tools[Tool Manager]
+    Agent <--> Tools[Repository Tools]
     Tools <--> Repo
-    Tools <--> Sandbox[Docker Sandbox]
+    Tools <--> Docker[Docker Sandbox]
 
-    Agent -->|candidate patch| Judge[Judge Agent]
+    Agent -->|candidate ready| Loop
+    Loop -->|candidate diff| Judge[Judge Agent]
+
     Judge <--> LLM
-    Judge <--> Verify[Verification]
-    Verify <--> Sandbox
+    Judge <--> Verify[verify_fix]
+    Verify <--> Docker
 
-    Judge --> Result[Patch + Result]
+    Judge -->|fail feedback| Loop
+    Loop --> Result[Result + Patch]
     Result --> API
 ```
 
