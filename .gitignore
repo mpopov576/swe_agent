@@ -1,0 +1,44 @@
+# Python
+/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/
+
+# Runtime artifacts
+/runs/
+/api-jobs/
+
+# Local configuration / secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Logs / temporary files
+*.log
+crash-log.txt
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Generated vector-store test data
+/tests/.chroma_test_data/
+
+# Local evaluation repositories
+/eval-repos/
+
+# Generated evaluation runs
+/evaluation-results/
+
+/evaluation-results-v1/*
+!/evaluation-results-v1/BATCH-NOTES.txt
+!/evaluation-results-v1/manifest.json
+!/evaluation-results-v1/results.csv
+
+# Temporary backups
+*.bak

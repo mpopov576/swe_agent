@@ -1,0 +1,12 @@
+task,repeat,agent_status,judge_result,patch_present,independent_result,agent_seconds,artifact_directory,error
+config-defaults,1,agent_incomplete,,False,no_patch,342.3,D:\python projects\evolving_swe\runs\run-ftgpumt1,
+config-defaults,2,agent_incomplete,,False,no_patch,354.88,D:\python projects\evolving_swe\runs\run-q16xiob1,
+config-defaults,3,rejected_by_human,pass,True,failed,352.72,D:\python projects\evolving_swe\runs\run-95x74i2l,
+inventory,1,agent_incomplete,,False,no_patch,418.04,D:\python projects\evolving_swe\runs\run-7bp8hdox,
+inventory,2,agent_incomplete,,False,no_patch,394.68,D:\python projects\evolving_swe\runs\run-k8jc5pto,
+merge-intervals,1,agent_incomplete,,False,no_patch,347.3,D:\python projects\evolving_swe\runs\run-57ml6vpx,
+merge-intervals,2,no_changes,,False,no_patch,356.17,D:\python projects\evolving_swe\runs\run-uy8i1ptx,
+merge-intervals,3,agent_incomplete,,False,no_patch,402.9,D:\python projects\evolving_swe\runs\run-f5l7s4n0,
+tag-order,1,judge_incomplete,incomplete,True,failed,370.28,D:\python projects\evolving_swe\runs\run-d805dmdm,
+tag-order,2,judge_incomplete,incomplete,True,failed,440.98,D:\python projects\evolving_swe\runs\run-l50z3ref,
+tag-order,3,model_timeout,fail,True,passed,826.91,D:\python projects\evolving_swe\runs\run-vttpoix_,

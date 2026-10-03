@@ -1,0 +1,54 @@
+{
+  "settings": {
+    "agent_model": "qwen3:14b",
+    "judge_model": "qwen3:14b",
+    "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+    "total_seconds": 900,
+    "request_timeout": 300
+  },
+  "image_id": "sha256:aabbbe4646fd8660762f7e2f93940e1e88ee751c0d77e93d480248de182d6dca",
+  "tasks": [
+    {
+      "name": "tag-order",
+      "checker": "check_tag_order.py",
+      "issue": "normalize_tags should strip whitespace, lowercase tags, remove blank tags, and remove duplicates while preserving the order of their first appearance. It currently changes that order. Fix this behavior without modifying the caller's input.",
+      "base_commit": "68e59cdec9635dbd7eae45919ad57cb2c27be6b5",
+      "checker_sha256": "e9d5ee86c3d55f783f74deab7345a72bc2546107420bcc817d0319f92ea6e53f"
+    },
+    {
+      "name": "merge-intervals",
+      "checker": "check_merge_intervals.py",
+      "issue": "Fix merge_intervals so it returns the union of overlapping or touching closed intervals, sorted by start. Nested intervals must not shorten an existing interval. Return a list of [start, end] lists without modifying the input. Inputs contain valid numeric intervals with start <= end.",
+      "base_commit": "83fe14300291c22fd48b2af709c849d5fb70eaa9",
+      "checker_sha256": "b514ef1187ac28113a07aa42fd3b623bf8c9bd03b2a196bbe5b07d2d5d4f57d8"
+    },
+    {
+      "name": "config-defaults",
+      "checker": "check_config_defaults.py",
+      "issue": "Configuration loading incorrectly replaces explicitly supplied values with defaults. Fix get_option and its use by build_config so defaults apply only when a key is missing or its value is None. Preserve all other supplied values, including 0, False, empty strings, and empty collections. Do not modify the input settings.",
+      "base_commit": "98080b1c16858c912e0908c15900f2f31ca4f7b7",
+      "checker_sha256": "44f87fc71529b17b987e12d8d8ca5b0fefff87efc563fd663ddfe94d6fa1e73d"
+    },
+    {
+      "name": "inventory",
+      "checker": "check_inventory.py",
+      "issue": "Fix reserve(stock, item, quantity). For a positive integer quantity, reserve stock and return True only when enough units exist. Otherwise return False and leave the entire stock dictionary unchanged, including when the item is missing. Successful reservations must decrement only the requested item, retaining its key at zero. Nonpositive quantities must raise ValueError without changing stock. Stock values are nonnegative integers.",
+      "base_commit": "9d1bc5406c87006b7cc48bf3c396f488702c810d",
+      "checker_sha256": "a4f333c6233e9c4a64c5e7db6c100e8f2e692e299ed109fb08ab190dbd6dd4d2"
+    },
+    {
+      "name": "page-tokens",
+      "checker": "check_page_tokens.py",
+      "issue": "Fix get_page so next_token is a string offset only when more items remain after the returned page; otherwise it must be None. This includes empty inputs, full and partial final pages, and offsets at or beyond the end. Preserve item order and do not modify the input list. Tokens are None or strings representing integer offsets. Keep ValueError for nonpositive integer page sizes and negative offsets.",
+      "base_commit": "e921b1e69d6129b14d91c4f455257a8249e57f3b",
+      "checker_sha256": "c7d78d7c8b9465bd841ca13cd2a1cde8174eaf811c54895dd5bd36c09b21e712"
+    },
+    {
+      "name": "csv-output",
+      "checker": "check_csv_output.py",
+      "issue": "Fix encode_row(fields) to serialize a list of strings as one valid comma-separated CSV record ending in CRLF. Preserve field contents exactly, including commas, double quotes, carriage returns, line feeds, Unicode, and empty strings. Embedded double quotes must be doubled within quoted fields. Distinguish a single empty field from a row containing no fields. Do not modify the input list. Standard-library solutions are allowed.",
+      "base_commit": "bc0a9c93020aeb5471aabf9234757fb3809099a3",
+      "checker_sha256": "6fb99ed4a26d6474d86d1a33e2b7e6374f711667d326f931e2eae7a740d6fd96"
+    }
+  ]
+}

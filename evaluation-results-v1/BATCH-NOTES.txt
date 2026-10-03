@@ -1,0 +1,1 @@
+﻿Partial v1 batch. inventory-3 was manually interrupted; its not_run summary is not a completed repair failure. A mixed-line-ending bug was subsequently reproduced in the edit tool.
