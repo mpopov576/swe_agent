@@ -1,6 +1,8 @@
 # swe_agent
 
-swe_agent is a sandboxed software-repair agent for repository-level bug fixing. Given a repository and an issue description, it retrieves relevant code, uses tool calls to inspect and edit the repository, runs verification commands in Docker, asks a separate judge agent to review the candidate, and saves the resulting patch and run artifacts.
+`swe_agent` is a sandboxed software-repair agent for repository-level bug fixing. Given a repository and an issue description, it retrieves relevant code, uses tool calls to inspect and edit the repository, runs verification commands in Docker, asks a separate judge agent to review the candidate, and saves the resulting patch and run artifacts.
+
+> **Note:** This is an independent project and is not affiliated with the Princeton/Stanford [SWE-agent](https://github.com/SWE-agent/SWE-agent) project.
 
 The project supports two LLM backends:
 
@@ -28,7 +30,6 @@ flowchart LR
 
     LLM <--> Ollama[Qwen3 14B / Ollama]
     LLM <--> Bedrock[Qwen3-Coder / Amazon Bedrock]
-
     Agent <--> Tools[Repository Tools]
     Tools <--> Repo
     Tools <--> Docker[Docker Sandbox]
@@ -44,13 +45,7 @@ flowchart LR
     Result --> API
 ```
 
-
-
-
-```markdown
 The EC2 instance runs API orchestration, repository retrieval, tool execution, Docker-based testing, and verification. The shared `LLMClient` can route inference either to local Qwen3 14B through Ollama or to Qwen3-Coder through Amazon Bedrock.
-
-```
 
 ## How it works
 
@@ -65,7 +60,7 @@ A repair run follows a bounded workflow:
 7. Re-run the same verification command against the original and patched repository.
 8. Save the complete run result and Git diff as artifacts.
 
-The agent is intentionally tool-driven: file changes and verification happen through explicit repository tools rather than unrestricted shell access from the model.
+The agent is intentionally tool-driven. File inspection and editing use explicit repository tools, while command execution is confined to the restricted Docker runtime rather than running directly on the host.
 
 ## Repository context
 
@@ -75,10 +70,10 @@ The context pipeline combines several signals rather than sending the whole repo
 - semantic embeddings with `sentence-transformers/all-MiniLM-L6-v2`
 - Chroma vector search
 - lexical search
-- dependency/call-graph expansion
+- heuristic symbol and call-pattern expansion
 - reranking and context assembly
 
-This keeps the model prompt focused on a bounded set of code while still exposing structural relationships around the retrieved symbols.
+This keeps the model prompt focused on a bounded set of code while still exposing useful structural relationships around retrieved symbols.
 
 ## Sandboxing
 
@@ -92,7 +87,11 @@ Command execution and verification run in Docker with restricted runtime setting
 - CPU and memory limits
 - temporary writable storage through `tmpfs`
 
-The repository itself is mounted into the container for execution. Dependency installation happens while preparing the repository-specific image, so image construction is a separate trust boundary from the network-disabled runtime container.
+The repository itself is mounted into the container for execution.
+
+Repository-specific dependency installation happens earlier, while preparing the Docker image. That build step is a separate trust boundary from the restricted runtime container: package installation or repository build scripts may execute code during image construction, and the build process may require network access.
+
+The runtime sandbox therefore limits commands executed during agent operation and verification, but image construction should not be treated as a security boundary for fully untrusted repositories.
 
 ## LLM backends
 
@@ -306,6 +305,7 @@ After the tunnel is established, the client can use `http://127.0.0.1:8000` loca
     ├── manifest.json
     └── results.csv
 ```
+
 ## Future work
 
 A planned extension is an **optimization cycle** around the repair pipeline.
@@ -321,19 +321,20 @@ The idea is to use evaluation results as structured feedback for improving the s
 
 This would turn the current evaluation harness into a repeatable optimization loop rather than using it only for final measurement.
 
-The goal is not to let the agent modify itself without control, but to make changes measurable and reproducible against fixed tasks, commits, checkers, and runtime settings.
+The goal is not to let the agent modify itself without control, but to make changes measurable against fixed tasks, commits, checkers, and runtime settings.
 
 ## Current limitations
 
 Current limitations include:
 
-- the local evaluation is constrained by relatively small model, which can limit both patch quality and judge reliability
+- the local evaluation is constrained by a relatively small model, which can limit both patch quality and judge reliability
 - the evaluation set is small and task-specific
 - the API uses a single-worker, filesystem-backed job model
 - only one repair job runs at a time
-- repository setup can require network access while building the per-repository Docker image
+- repository setup can require network access and execute repository/package installation logic while building the per-repository Docker image
+- the runtime Docker restrictions do not make the repository image-build stage safe for arbitrary untrusted repositories
 - the current AWS deployment is private behind an SSH tunnel rather than a public HTTPS endpoint
 - the published evaluation measures the local Qwen3 14B configuration, not the Bedrock deployment
 - the local benchmark fixture repositories used for the recorded evaluation are not committed to the public repository
 
-The main engineering focus of the project is the repair pipeline itself: repository retrieval, bounded tool use, isolated execution, explicit verification, reproducible artifacts, and deployable model backends.
+The main engineering focus of the project is the repair pipeline itself: repository retrieval, bounded tool use, isolated runtime execution, explicit verification, recorded evaluation artifacts, and deployable model backends.
