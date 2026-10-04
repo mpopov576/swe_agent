@@ -1,13 +1,25 @@
-# swe_agent
+# swe_agent 
 
-`swe_agent` is a sandboxed software-repair agent for repository-level bug fixing. Given a repository and an issue description, it retrieves relevant code, uses tool calls to inspect and edit the repository, runs verification commands in Docker, asks a separate judge agent to review the candidate, and saves the resulting patch and run artifacts.
+`swe_agent` is a repository-level software-repair agent that takes a Git repository and an issue description, retrieves relevant code, edits the repository through bounded tools, verifies candidate fixes inside Docker, and produces a Git patch with recorded run artifacts.
 
-The project supports two LLM backends:
+The system uses a separate judge agent and independently re-tests generated patches against both the original and modified repository state.
 
-- **Local:** Qwen3 14B through Ollama
-- **AWS:** Qwen3-Coder-30B-A3B-Instruct through Amazon Bedrock
+**Recorded local evaluation:** **11/18 independently verified repairs (61.1%)** across six small controlled bug-fixing tasks, with each task repeated three times.
 
-The recorded evaluation results in this repository were produced with the local Qwen3 14B configuration. The AWS deployment is a separate hosted configuration.
+> The included benchmark is a project-specific evaluation suite, not SWE-bench.
+
+## Key features
+
+- repository-aware code retrieval using Tree-sitter, embeddings, lexical search, and reranking
+- explicit read, search, edit, and command-execution tools for the repair agent
+- Docker-based runtime isolation with network access disabled and resource restrictions
+- verification against both the original and patched repository
+- a separate judge agent for candidate review
+- independent evaluation that re-applies and re-tests generated patches
+- local inference through Ollama
+- hosted inference through Amazon Bedrock
+- asynchronous FastAPI job API
+- recorded patches, run metadata, and evaluation results
 
 ## Architecture
 
@@ -28,6 +40,7 @@ flowchart LR
 
     LLM <--> Ollama[Qwen3 14B / Ollama]
     LLM <--> Bedrock[Qwen3-Coder / Amazon Bedrock]
+
     Agent <--> Tools[Repository Tools]
     Tools <--> Repo
     Tools <--> Docker[Docker Sandbox]
@@ -43,91 +56,134 @@ flowchart LR
     Result --> API
 ```
 
-The EC2 instance runs API orchestration, repository retrieval, tool execution, Docker-based testing, and verification. The shared `LLMClient` can route inference either to local Qwen3 14B through Ollama or to Qwen3-Coder through Amazon Bedrock.
+The repair pipeline handles repository preparation, code retrieval, tool execution, Docker-based testing, verification, and patch generation.
+
+A shared `LLMClient` abstraction supports two inference configurations:
+
+- **Local development and evaluation:** Qwen3 14B through Ollama
+- **AWS deployment:** Qwen3-Coder-30B-A3B-Instruct through Amazon Bedrock
+
+The recorded benchmark results in this repository were produced with the local Qwen3 14B configuration. They do not measure the Bedrock deployment.
 
 ## How it works
 
 A repair run follows a bounded workflow:
 
 1. Clone or copy the target repository into a temporary workspace.
-2. Build a repository-specific execution environment.
-3. Index the repository and retrieve code relevant to the issue.
-4. Let the SWE agent inspect files, search code, edit files, and run commands.
-5. Require command-based verification after edits.
-6. Pass the candidate to a separate judge agent.
-7. Re-run the same verification command against the original and patched repository.
-8. Save the complete run result and Git diff as artifacts.
+2. Prepare a repository-specific execution environment.
+3. Parse and index the repository.
+4. Retrieve code relevant to the supplied issue.
+5. Let the SWE agent inspect, search, edit, and test the repository through explicit tools.
+6. Require command-based verification after modifications.
+7. Pass the candidate patch and evidence to a separate judge agent.
+8. Re-run the selected verification command against the original and patched repository.
+9. Save the run result and generated Git diff as artifacts.
 
-The agent primarily interacts with repository files through explicit read/search/edit tools. Command execution is additionally available inside a restricted Docker container with network access disabled, dropped capabilities, resource limits, and a read-only container root filesystem.
+The agent primarily interacts with repository files through explicit read, search, and edit tools.
 
-## Repository context
+Commands requested by the agent are executed inside a restricted Docker runtime rather than directly on the host.
 
-The context pipeline combines several signals rather than sending the whole repository to the model:
+## Repository context and retrieval
+
+Instead of placing the entire repository into the model context, the retrieval pipeline combines multiple signals:
 
 - Tree-sitter parsing for Python, JavaScript, TypeScript, Java, C, C++, Go, Rust, and C#
-- semantic embeddings with `sentence-transformers/all-MiniLM-L6-v2`
+- semantic embeddings using `sentence-transformers/all-MiniLM-L6-v2`
 - Chroma vector search
 - lexical search
 - heuristic symbol and call-pattern expansion
-- reranking and context assembly
+- weighted retrieval and reranking
+- bounded context assembly
 
-This keeps the model prompt focused on a bounded set of code while still exposing useful structural relationships around retrieved symbols.
+This provides the model with a smaller set of issue-relevant code while retaining useful structural relationships around retrieved symbols.
 
-## Sandboxing
+The call-pattern expansion is intentionally heuristic; it is not a full language-aware static call-graph implementation.
 
-Command execution and verification run in Docker with restricted runtime settings, including:
+## Runtime sandbox
 
-- no network access
+Agent command execution and verification run inside Docker with restricted runtime settings, including:
+
+- network access disabled
 - read-only container root filesystem
 - dropped Linux capabilities
 - `no-new-privileges`
 - PID limits
-- CPU and memory limits
+- CPU limits
+- memory limits
 - temporary writable storage through `tmpfs`
 
-The repository itself is mounted into the container for execution.
+The target repository is mounted into the container so that tests and verification commands can execute against it.
 
-Repository-specific dependency installation happens earlier, while preparing the Docker image. That build step is a separate trust boundary from the restricted runtime container: package installation or repository build scripts may execute code during image construction, and the build process may require network access.
+### Trust boundary
 
-The runtime sandbox therefore limits commands executed during agent operation and verification, but image construction should not be treated as a security boundary for fully untrusted repositories.
+Repository-specific dependency installation happens earlier while the execution image is being prepared.
+
+That build step is a separate trust boundary from the restricted runtime container. Package installation and repository build scripts may execute code during image construction, and dependency resolution may require network access.
+
+The runtime restrictions therefore reduce the capabilities available to commands executed during agent operation and verification, but **image construction should not be treated as a security boundary for arbitrary untrusted repositories**.
 
 ## LLM backends
 
-The same `LLMClient` interface is used by both the SWE agent and judge.
+The SWE agent and judge share the same `LLMClient` abstraction.
 
 | Mode | Backend | Model |
 | --- | --- | --- |
 | Local development / evaluation | Ollama | `qwen3:14b` |
 | AWS deployment | Amazon Bedrock | `qwen.qwen3-coder-30b-a3b-v1:0` |
 
-Select the backend with:
+The active backend is selected through `SWE_LLM_BACKEND`.
 
-```text
-SWE_LLM_BACKEND=ollama
+### Linux/macOS
+
+For local inference:
+
+```bash
+export SWE_LLM_BACKEND=ollama
 ```
 
-or:
+For Bedrock:
 
-```text
-SWE_LLM_BACKEND=bedrock
+```bash
+export SWE_LLM_BACKEND=bedrock
 ```
 
-For Bedrock, the deployment also sets `AWS_REGION` and model environment variables. The EC2 instance uses an IAM role for Bedrock access rather than static AWS credentials.
+### PowerShell
+
+For local inference:
+
+```powershell
+$env:SWE_LLM_BACKEND = "ollama"
+```
+
+For Bedrock:
+
+```powershell
+$env:SWE_LLM_BACKEND = "bedrock"
+```
+
+The Bedrock deployment additionally configures the AWS region and model identifiers.
+
+The EC2 deployment uses an IAM role for Bedrock access rather than storing static AWS credentials in the application configuration.
 
 ## Evaluation
 
-The benchmark contains six bug-fixing tasks, each repeated three times. For every attempt, the harness:
+The repository includes a small controlled benchmark for measuring the repair pipeline.
 
-- checks out an exact starting commit
-- confirms the baseline checker fails
-- runs the repair agent
-- captures the generated Git patch
-- applies that patch to a fresh checkout
-- executes an independent checker in a restricted Docker container
+The benchmark contains **six bug-fixing tasks**, with each task executed three times for a total of **18 repair attempts**.
 
-The final score is based on this independent checker, not on the judge agent's own verdict.
+For every attempt, the evaluation harness:
 
-The recorded evaluation used:
+1. checks out an exact starting commit
+2. confirms that the baseline checker fails
+3. runs the repair agent
+4. captures the generated Git patch
+5. creates a fresh checkout
+6. applies the generated patch independently
+7. executes an independent checker inside a restricted Docker container
+
+The primary benchmark result is therefore determined by the independent checker rather than by the judge agent's own verdict.
+
+### Evaluation configuration
 
 ```text
 Agent model:      qwen3:14b
@@ -155,17 +211,42 @@ Across all 18 attempts:
 - **6** failed the independent checker
 - **1** produced a checker error
 
-This is an independent-checker pass rate of **61.1% (11/18)** on this small benchmark.
+The resulting independent-checker pass rate is:
 
-The judge layer was less reliable than the patch generator in this run: it returned an incomplete verdict on 12 attempts, `pass` on 2, `fail` on 1, and no verdict on 3. That is why the benchmark reports independently re-applied and re-tested patches as the primary result.
+**61.1% (11/18)**
 
-These tasks are small, controlled repository repairs. They are not SWE-bench results and should not be interpreted as a general software-engineering benchmark.
+The judge agent frequently failed to return a complete usable verdict during this evaluation:
 
-Aggregate results and the evaluation manifest are stored under `evaluation-results/`.
+- incomplete verdict: 12 attempts
+- `pass`: 2 attempts
+- `fail`: 1 attempt
+- no verdict: 3 attempts
+
+Because of this, the benchmark deliberately treats independently re-applied and re-tested patches as the primary measurement rather than relying on the judge's self-reported result.
+
+### Scope of the benchmark
+
+These tasks are small, controlled repository repairs.
+
+They are **not SWE-bench tasks**, and the 61.1% result should not be interpreted as a general software-engineering-agent success rate or compared directly with SWE-bench scores.
+
+Aggregate results and the evaluation manifest are stored under:
+
+```text
+evaluation-results/
+```
+
+### Reproducibility note
+
+The evaluation harness, independent checkers, manifest, and aggregate results are included in this repository.
+
+The local fixture repositories used to produce the recorded benchmark are currently **not included in the public repository**. As a result, the published 11/18 run cannot currently be reproduced end-to-end from the public repository alone.
+
+Publishing reproducible benchmark fixtures is planned future work.
 
 ## FastAPI service
 
-`api.py` exposes the repair pipeline as an asynchronous job API.
+`api.py` exposes the repair pipeline through an asynchronous job API.
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
@@ -175,7 +256,9 @@ Aggregate results and the evaluation manifest are stored under `evaluation-resul
 | `GET` | `/jobs/{job_id}/result` | Read the full result |
 | `GET` | `/jobs/{job_id}/patch` | Download the generated patch |
 
-Job endpoints use an `X-API-Key` header. The service currently allows one active repair job at a time and returns HTTP 409 when another job is already running.
+Job endpoints require an `X-API-Key` header.
+
+The current service allows one active repair job at a time and returns HTTP `409 Conflict` if another repair is already running.
 
 Example request:
 
@@ -198,61 +281,95 @@ curl -X POST http://127.0.0.1:8000/jobs \
 - Git
 - Ollama for local inference
 
-Create an environment and install the local dependencies:
+### 1. Create a virtual environment
 
 ```bash
 python -m venv .venv
 ```
 
-PowerShell:
+### 2. Activate it and install dependencies
+
+#### PowerShell
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-local.txt
 ```
 
-Linux/macOS:
+#### Linux/macOS
 
 ```bash
 source .venv/bin/activate
 pip install -r requirements-local.txt
 ```
 
-Build the base sandbox image:
+### 3. Build the base sandbox image
 
 ```bash
 docker build -t evolving-swe-sandbox:1.0 ./sandbox
 ```
 
-Pull the local model:
+### 4. Pull the local model
 
 ```bash
 ollama pull qwen3:14b
 ```
 
-Set the local backend:
+Make sure the Ollama service is running before starting a repair.
 
-```text
-SWE_LLM_BACKEND=ollama
+### 5. Configure the local backend
+
+#### PowerShell
+
+```powershell
+$env:SWE_LLM_BACKEND = "ollama"
 ```
 
-For API use, also set an API key of at least 24 characters and start Uvicorn:
+#### Linux/macOS
+
+```bash
+export SWE_LLM_BACKEND=ollama
+```
+
+### 6. Configure the API key
+
+The FastAPI service requires an API key containing at least 24 characters.
+
+#### PowerShell
+
+```powershell
+$env:SWE_API_KEY = "replace-with-a-long-random-api-key"
+```
+
+#### Linux/macOS
+
+```bash
+export SWE_API_KEY="replace-with-a-long-random-api-key"
+```
+
+### 7. Start the API
 
 ```bash
 uvicorn api:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-`requirements-local.txt` reflects the development environment used for this project; exact package compatibility may vary across platforms.
+The service is then available at:
+
+```text
+http://127.0.0.1:8000
+```
+
+`requirements-local.txt` reflects the development environment used for this project. Exact package compatibility may vary across operating systems and platforms.
 
 ## AWS deployment
 
-The hosted version runs on an Ubuntu EC2 instance with:
+The hosted configuration runs on an Ubuntu EC2 instance with:
 
-- the FastAPI service managed by `systemd`
-- Docker for repository execution
+- FastAPI managed by `systemd`
+- Docker for repository execution and verification
 - Amazon Bedrock for inference
-- an EC2 IAM role for Bedrock permissions
-- the API bound to `127.0.0.1:8000`
+- an EC2 IAM role granting Bedrock access
+- the application API bound to `127.0.0.1:8000`
 
 The deployment uses:
 
@@ -263,7 +380,13 @@ SWE_AGENT_MODEL=qwen.qwen3-coder-30b-a3b-v1:0
 SWE_JUDGE_MODEL=qwen.qwen3-coder-30b-a3b-v1:0
 ```
 
-The API is intentionally not exposed directly to the public Internet. It is accessed through an SSH tunnel:
+Static AWS credentials are not stored in the application configuration; Bedrock access is provided through the EC2 instance IAM role.
+
+### Access
+
+The API is intentionally not exposed directly to the public Internet.
+
+It is accessed through an SSH tunnel:
 
 ```bash
 ssh -i /path/to/key.pem \
@@ -271,7 +394,13 @@ ssh -i /path/to/key.pem \
   ubuntu@EC2_PUBLIC_IP
 ```
 
-After the tunnel is established, the client can use `http://127.0.0.1:8000` locally while requests are forwarded to the EC2 service.
+After the tunnel is established, the client communicates with:
+
+```text
+http://127.0.0.1:8000
+```
+
+and the traffic is forwarded to the service running on EC2.
 
 ## Project structure
 
@@ -304,35 +433,49 @@ After the tunnel is established, the client can use `http://127.0.0.1:8000` loca
     └── results.csv
 ```
 
-## Future work
-
-A planned extension is an **optimization cycle** around the repair pipeline.
-
-The idea is to use evaluation results as structured feedback for improving the system iteratively:
-
-1. run the repair benchmark
-2. collect failed and incomplete attempts
-3. analyze where the pipeline failed — retrieval, tool use, patch generation, verification, or judging
-4. adjust prompts, retrieval/reranking, tool policies, or verification logic
-5. re-run the same fixed evaluation suite
-6. compare the new results against the previous configuration
-
-This would turn the current evaluation harness into a repeatable optimization loop rather than using it only for final measurement.
-
-The goal is not to let the agent modify itself without control, but to make changes measurable against fixed tasks, commits, checkers, and runtime settings.
-
 ## Current limitations
 
-Current limitations include:
+The current implementation has several known limitations:
 
-- the local evaluation is constrained by a relatively small model, which can limit both patch quality and judge reliability
 - the evaluation set is small and task-specific
+- the recorded evaluation uses a relatively small local model
+- judge reliability was poor in the recorded local benchmark
 - the API uses a single-worker, filesystem-backed job model
-- only one repair job runs at a time
-- repository setup can require network access and execute repository/package installation logic while building the per-repository Docker image
-- the runtime Docker restrictions do not make the repository image-build stage safe for arbitrary untrusted repositories
-- the current AWS deployment is private behind an SSH tunnel rather than a public HTTPS endpoint
+- only one repair job can run at a time
+- repository setup may require network access
+- dependency installation and repository build scripts may execute code during image construction
+- runtime Docker restrictions do not make the image-build stage safe for arbitrary untrusted repositories
+- the AWS deployment is private behind an SSH tunnel rather than exposed through a public HTTPS endpoint
 - the published evaluation measures the local Qwen3 14B configuration, not the Bedrock deployment
-- the local benchmark fixture repositories used for the recorded evaluation are not committed to the public repository
+- the benchmark fixture repositories used for the recorded evaluation are not currently included in the public repository
 
-The main engineering focus of the project is the repair pipeline itself: repository retrieval, bounded tool use, isolated runtime execution, explicit verification, recorded evaluation artifacts, and deployable model backends.
+## Future work
+
+Planned improvements include:
+
+- publishing reproducible benchmark fixtures
+- improving judge reliability
+- expanding the evaluation suite
+- improving retrieval and reranking based on benchmark failures
+- strengthening repository setup isolation
+- adding more robust job persistence and concurrency
+- evaluating the Bedrock configuration separately
+
+A longer-term goal is to use the evaluation harness as part of a controlled optimization cycle:
+
+1. run the fixed repair benchmark
+2. collect failed and incomplete attempts
+3. classify failures across retrieval, tool use, patch generation, verification, and judging
+4. modify one or more components
+5. re-run the same benchmark
+6. compare the new results against the previous configuration
+
+This keeps system improvements measurable against fixed tasks, commits, independent checkers, and runtime settings rather than relying only on qualitative examples.
+
+## Project focus
+
+The main engineering focus of `swe_agent` is the complete repair pipeline:
+
+**repository retrieval → bounded tool use → code modification → isolated execution → explicit verification → independent evaluation → deployable model backends**
+
+The project is intended as an exploration of reliable AI-assisted software repair rather than as a production-ready autonomous coding service.
