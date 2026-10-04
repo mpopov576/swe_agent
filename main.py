@@ -182,17 +182,3 @@ def main(
                 print(f"Workspace preserved at: {sandbox.repo_path.parent}", file=sys.stderr)
 
 
-if __name__ == "__main__":
-    result = main(
-        repo_url=r"D:\python projects\evolving_swe\smoke-shipping",
-        issue_text=(
-            "Shipping costs 5 for orders below 50 and is free for orders "
-            "of 50 or more. Orders totaling exactly 50 are charged incorrectly. "
-            "Fix this behavior."
-        ),
-        agent_model="qwen3:14b",
-        judge_model="qwen3:14b",
-        embedding_model="sentence-transformers/all-MiniLM-L6-v2",
-        request_timeout=300,
-    )
-    print(result["status"])

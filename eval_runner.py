@@ -217,7 +217,7 @@ def run_attempt(task, repeat):
 
         row["agent_status"] = result.get("status", "")
         row["judge_result"] = (result.get("verdict") or {}).get("result", "")
-        row["artifact_directory"] = result.get("artifact_directory", "")
+        row["artifact_directory"] = attempt_dir.relative_to(ROOT).as_posix()
         save_json(attempt_dir / "agent-result.json", result)
 
         if not result.get("patch_complete"):
