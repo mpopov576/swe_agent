@@ -149,6 +149,14 @@ The AWS deployment also configures the region and model identifiers.
 
 Bedrock access is provided through an EC2 IAM role rather than static AWS credentials stored in the application.
 
+## Tests
+
+Run the unit test suite with:
+
+```bash
+python -m pytest -q
+```
+
 ## Evaluation
 
 The repository includes a small controlled benchmark designed to exercise the complete repair pipeline.
