@@ -1,7 +1,34 @@
 from sandbox.runner import SandboxRunner
+import subprocess
+
+import pytest
 
 TEST_REPO = "https://github.com/octocat/Hello-World.git"
 
+def docker_available():
+    try:
+        result = subprocess.run(
+            ["docker", "info"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+    ):
+        return False
+
+    return result.returncode == 0
+
+
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        not docker_available(),
+        reason="Docker daemon is not available",
+    ),
+]
 
 def test_sandbox_can_create_file():
     sandbox = SandboxRunner(TEST_REPO)
