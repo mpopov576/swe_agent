@@ -26,9 +26,6 @@ htmlcov/
 # Generated vector-store test data
 /tests/.chroma_test_data/
 
-# Local evaluation repositories
-/eval-repos/
-
 # Keep only summary files from the final evaluation
 /evaluation-results/*
 !/evaluation-results/BATCH-NOTES.txt
