@@ -8,19 +8,6 @@ The project supports both local inference with Qwen3 through Ollama and hosted i
 
 > This is an experimental AI/software-engineering project, not a production-ready autonomous coding service.
 
-## Highlights
-
-- repository-aware retrieval using Tree-sitter, embeddings, lexical search, and reranking
-- explicit read, search, edit, and command-execution tools
-- Docker-isolated command execution and verification
-- separate repair and judge agents
-- original-vs-patched verification
-- independent benchmark checkers
-- Ollama and Amazon Bedrock inference backends
-- asynchronous FastAPI job API
-- persistent patches, results, and evaluation artifacts
-- controlled evaluation fixtures published with the project
-
 ## Architecture
 
 ```mermaid
